@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اسبيرات القمة</title>
+<link rel="manifest" href="data:application/manifest+json,{"name":"اسبيرات القمة","short_name":"اسبيرات","start_url":"/","display":"standalone","background_color":"#f4f4f4","theme_color":"#004aad","icons":[{"src":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IB2cksfwAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUATWFjcm9tZWRpYSBGaXJld29ya3MgOFyYAAAAAElFTkSuQmCC","sizes":"512x512","type":"image/png"}]}">
+<meta name="theme-color" content="#004aad">
+<style>
+  body{font-family:Tahoma,Arial,sans-serif;background:#f4f4f4;margin:0;padding:10px;font-size:14px}
+.header{text-align:center;border-bottom:2px solid #004aad;padding-bottom:8px;margin-bottom:10px}
+.header h1{margin:0;color:#004aad;font-size:22px}
+.header p{margin:3px 0;color:#333;font-size:14px}
+.card{background:#fff;padding:15px;border-radius:12px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  input,button{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:1px solid #ccc;font-size:16px;box-sizing:border-box}
+  button{background:#004aad;color:#fff;border:none;cursor:pointer;font-weight:bold}
+  button.success{background:#0a7} button.danger{background:#c00} button.warn{background:#f80} button.info{background:#06c} button.gray{background:#666}
+  table{width:100%;border-collapse:collapse;background:#fff;margin-top:10px;font-size:13px}
+  th,td{border:1px solid #ccc;padding:6px;text-align:center}
+  th{background:#004aad;color:#fff}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.actions{display:flex;gap:4px}
+.actions button{padding:6px;font-size:12px;margin:0}
+.total-row{font-weight:bold;background:#eee}
+.net-row{font-weight:bold;background:#cfe7ff}
+  @media print{.no-print{display:none} body{background:#fff;padding:0}.card{box-shadow:none;border:0}.header{border-bottom:2px solid #000} }
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10;align-items:center;justify-content:center}
+.modal.box{background:#fff;padding:20px;border-radius:12px;width:90%;max-width:400px;max-height:90vh;overflow:auto}
+.search-result{border:1px solid #ccc;padding:8px;margin:5px 0;border-radius:8px;cursor:pointer}
+.search-result:hover{background:#eee}
+input[type=file]{padding:8px}
+#offline-badge{display:none;position:fixed;top:10px;left:10px;background:#0a7;color:#fff;padding:5px 10px;border-radius:20px;font-size:12px;z-index:99}
+</style>
+</head>
+<body>
+
+<div id="offline-badge">✅ يعمل بدون نت</div>
+
+<div class="header">
+  <h1>اسبيرات القمة</h1>
+  <p>العنوان: الحصاحيصا</p>
+  <p>رقم الهاتف: 0912345678</p>
+  <p>التاريخ: <span id="today"></span></p>
+</div>
+
+<div class="card no-print grid-2">
+  <button class="info" onclick="openSell()">🛒 شاشة البيع</button>
+  <button class="success" onclick="openInvoice()">🧾 فاتورة الزبون</button>
+</div>
+
+<div class="card no-print">
+  <h3>➕ إضافة صنف للمخزن</h3>
+  <input type="text" id="newName" placeholder="اسم الاسبير">
+  <div class="grid-3">
+    <input type="number" id="newPrice" placeholder="السعر">
+    <input type="number" id="newQty" placeholder="الكمية">
+    <button onclick="addItem()" class="success">إضافة</button>
+  </div>
+</div>
+
+<div class="card no-print">
+  <h3>💾 نسخ احتياطي للبيانات</h3>
+  <div class="grid-3">
+    <button onclick="exportJSON()" class="gray">تصدير JSON</button>
+    <button onclick="exportCSV()" class="gray">تصدير Excel</button>
+    <label class="gray" style="text-align:center;padding:12px;border-radius:8px;cursor:pointer">استيراد ملف
+      <input type="file" id="importFile" accept=".json,.csv" onchange="importFile(event)" style="display:none">
+    </label>
+  </div>
+</div>
+
+<div class="card">
+  <input type="text" id="search" placeholder="🔍 بحث في المخزن..." onkeyup="render()">
+  <table id="tbl">
+    <thead><tr><th>الرقم</th><th>الصنف</th><th>السعر</th><th>الكمية</th><th>الجملة</th><th class="no-print">تحكم</th></tr></thead>
+    <tbody></tbody>
+    <tfoot id="tfoot"></tfoot>
+  </table>
+</div>
+
+<div id="sellBox" class="modal no-print"><div class="box">
+  <h3>🛒 شاشة البيع</h3>
+  <input type="text" id="sellSearch" placeholder="ابحث باسم الاسبير..." onkeyup="searchSell()">
+  <div id="sellResults" style="max-height:200px;overflow:auto"></div>
+  <hr>
+  <h4>الفاتورة الحالية</h4>
+  <table id="cartTbl"><thead><tr><th>الصنف</th><th>السعر</th><th>كمية</th><th>جملة</th><th>X</th></tr></thead><tbody></tbody></table>
+  <p style="text-align:left;font-weight:bold">الاجمالي: <span id="cartTotal">0</span></p>
+  <button onclick="closeSell()" class="danger">إغلاق</button>
+</div></div>
+
+<div id="invoiceBox" class="modal"><div class="box">
+  <div class="header">
+    <h1>اسبيرات القمة</h1>
+    <p>العنوان: الحصاحيصا | هاتف: 0912345678</p>
+    <p>التاريخ: <span id="today2"></span></p>
+  </div>
+  <input type="text" id="custName" placeholder="اسم الزبون" class="no-print">
+  <table id="invTbl"><thead><tr><th>الصنف</th><th>السعر</th><th>كمية</th><th>جملة</th></tr></thead><tbody></tbody><tfoot id="invFoot"></tfoot></table>
+  <div class="no-print grid-2">
+    <button onclick="window.print()" class="success">🖨️ طباعة</button>
+    <button onclick="closeInvoice()" class="danger">إغلاق</button>
+  </div>
+</div></div>
+
+<script>
+let items = JSON.parse(localStorage.getItem("items_v82")) || [];
+let cart = [];
+
+function setDate(){
+  let d = new Date().toLocaleDateString('ar-SD',{year:'numeric',month:'long',day:'numeric'});
+  today.textContent = d; today2.textContent = d;
+}
+setDate();
+function save(){ localStorage.setItem("items_v82", JSON.stringify(items)) }
+
+function addItem(){
+  let n = newName.value.trim(), p = +newPrice.value, q = +newQty.value || 0;
+  if(!n || p <= 0){ alert("بيانات غلط"); return }
+  items.push({n,p,q}); newName.value=newPrice.value=newQty.value="";
+  save(); render();
+}
+
+function render(){
+  let txt = search.value.toLowerCase();
+  let tbody = tbl.querySelector('tbody'); tbody.innerHTML="";
+  let grandTotal = 0;
+  items.filter(x=>x.n.toLowerCase().includes(txt)).forEach((x,i)=>{
+    let total = x.p * x.q; grandTotal += total;
+    tbody.innerHTML += `<tr><td>${i+1}</td><td>${x.n}</td><td>${x.p.toLocaleString()}</td><td>${x.q}</td><td>${total.toLocaleString()}</td>
+    <td class="no-print"><div class="actions"><button class="warn" onclick="openEdit(${i})">تعديل</button><button class="danger" onclick="del(${i})">حذف</button></div></td></tr>`
+  });
+  tfoot.innerHTML = `<tr class="total-row"><td colspan="4">اجمالي المخزن</td><td>${grandTotal.toLocaleString()}</td><td class="no-print"></td></tr>`;
+}
+
+function del(i){ if(confirm("حذف؟")){ items.splice(i,1); save(); render() } }
+function openEdit(i){ editIndex=i; editName.value=items[i].n; editPrice.value=items[i].p; editQty.value=items[i].q; editBox.style.display="flex"; }
+function closeEdit(){ editBox.style.display="none"; editIndex=-1; }
+function saveEdit(){ if(editIndex==-1)return; let n=editName.value.trim(),p=+editPrice.value,q=+editQty.value||0; if(!n||p<=0){alert("بيانات غلط");return} items[editIndex]={n,p,q}; save(); render(); closeEdit(); }
+
+function openSell(){ sellBox.style.display="flex"; sellSearch.value=""; searchSell(); }
+function closeSell(){ sellBox.style.display="none"; }
+function searchSell(){
+  let txt = sellSearch.value.toLowerCase();
+  let box = sellResults; box.innerHTML="";
+  items.filter(x=>x.n.toLowerCase().includes(txt) && x.q>0).slice(0,10).forEach((x)=>{
+    box.innerHTML += `<div class="search-result" onclick="addToCart(${items.indexOf(x)})"><b>${x.n}</b> - السعر: ${x.p.toLocaleString()} - متوفر: ${x.q}</div>`
+  });
+}
+function addToCart(idx){
+  let item = items[idx];
+  let qty = prompt(`كمية ${item.n}؟ متوفر: ${item.q}`);
+  qty = +qty;
+  if(!qty || qty<=0) return;
+  if(qty > item.q){ alert("الكمية اكبر من المخزن"); return }
+  cart.push({n:item.n,p:item.p,q:qty});
+  item.q -= qty; save(); render(); renderCart();
+}
+function renderCart(){
+  let tbody = cartTbl.querySelector('tbody'); tbody.innerHTML="";
+  let total=0;
+  cart.forEach((x,i)=>{
+    let t=x.p*x.q; total+=t;
+    tbody.innerHTML+=`<tr><td>${x.n}</td><td>${x.p.toLocaleString()}</td><td>${x.q}</td><td>${t.toLocaleString()}</td><td><button onclick="removeCart(${i})">X</button></td></tr>`
+  });
+  cartTotal.textContent=total.toLocaleString();
+}
+function removeCart(i){
+  let x = cart[i];
+  items.find(it=>it.n===x.n).q += x.q;
+  cart.splice(i,1); save(); render(); renderCart();
+}
+
+function openInvoice(){
+  if(cart.length===0){ alert("الفاتورة فاضية"); return }
+  let tbody=invTbl.querySelector('tbody'); tbody.innerHTML="";
+  let total=0;
+  cart.forEach(x=>{ let t=x.p*x.q; total+=t; tbody.innerHTML+=`<tr><td>${x.n}</td><td>${x.p.toLocaleString()}</td><td>${x.q}</td><td>${t.toLocaleString()}</td></tr>` });
+  let discount = prompt("خصم؟ اكتب المبلغ او 0")||0;
+  discount = +discount;
+  let net = total - discount;
+  invFoot.innerHTML = `<tr class="total-row"><td colspan="3">اجمالي الفاتورة</td><td>${total.toLocaleString()}</td></tr>
+  <tr><td colspan="3">خصم</td><td>${discount.toLocaleString()}</td></tr>
+  <tr class="net-row"><td colspan="3">صافي الفاتورة</td><td>${net.toLocaleString()}</td></tr>`;
+  invoiceBox.style.display="flex";
+}
+function closeInvoice(){ invoiceBox.style.display="none"; cart=[]; renderCart(); }
+
+function exportJSON(){
+  let data = JSON.stringify(items, null, 2);
+  let blob = new Blob([data], {type: "application/json"});
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement('a');
+  a.href = url; a.download = "اسبيرات_القمة.json"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(){
+  let csv = "الصنف,السعر,الكمية\n";
+  items.forEach(x=>{ csv += `${x.n},${x.p},${x.q}\n` });
+  let blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement('a');
+  a.href = url; a.download = "اسبيرات_القمة.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importFile(event){
+  let file = event.target.files[0];
+  if(!file) return;
+  let reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      if(file.name.endsWith(".json")){
+        items = JSON.parse(e.target.result);
+      }else if(file.name.endsWith(".csv")){
+        let lines = e.target.result.split("\n").slice(1);
+        items = lines.filter(l=>l.trim()).map(l=>{
+          let [n,p,q] = l.split(",");
+          return {n:n.trim(), p:+p, q:+q||0}
+        });
+      }
+      save(); render();
+      alert("تم الاستيراد بنجاح. عدد الاصناف: " + items.length);
+    }catch(err){ alert("ملف غلط: " + err.message) }
+  };
+  reader.readAsText(file, "UTF-8");
+}
+
+render();
+
+// 1. كود الـ Service Worker عشان يشتغل Offline
+if('serviceWorker' in navigator){
+  const swCode = `
+  const CACHE = 'aspierat-v82';
+  self.addEventListener('install', e => {
+    e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(['/', '/index.html'])));
+    self.skipWaiting();
+  });
+  self.addEventListener('fetch', e => {
+    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+  });
+  `;
+  const blob = new Blob([swCode], {type: 'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob));
+}
+
+// 2. علامة اوفلاين
+window.addEventListener('offline', () => offlineBadge.style.display='block');
+window.addEventListener('online', () => offlineBadge.style.display='none');
+if(!navigator.onLine) offlineBadge.style.display='block';
+</script>
+</body>
+</html>
